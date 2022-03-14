@@ -1,0 +1,90 @@
+alias: Phone caller announcement and terminate
+description: Phone caller announcement and optional terminate
+trigger:
+  - platform: state
+    entity_id: sensor.status_phone_caller_id
+    from: ring
+    to: callerid
+    id: show_call
+  - platform: state
+    from: callerid
+    to: ring
+    entity_id: sensor.status_phone_caller_id
+    id: request_cancle
+condition: []
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: show_call
+          - condition: state
+            entity_id: remote.harmony_hub
+            attribute: current_activity
+            state: TV
+        sequence:
+          - service: notify.shield_nvidia_android_tv
+            data:
+              message: '{{state_attr("sensor.phone_caller_id", "number")}}'
+              title: '{{states("sensor.phone_caller_id")}}'
+              data:
+                fontsize: large
+                position: center
+                duration: 5
+                color: grey
+                image:
+                  path: /media/phone.png
+    default: []
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: request_cancle
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: state
+                    entity_id: remote.harmony_hub
+                    attribute: current_activity
+                    state: TV
+                sequence:
+                  - service: notify.shield_nvidia_android_tv
+                    data:
+                      message: '{{state_attr("sensor.phone_caller_id", "number")}}'
+                      title: '{{states("sensor.phone_caller_id")}}'
+                      data:
+                        fontsize: large
+                        position: center
+                        duration: 15
+                        color: grey
+                        image:
+                          path: /media/phone.png
+            default: []
+    default:
+      - service: script.activate_alexa_actionable_notification
+        data:
+          text: >-
+            Caller ID is {{states("sensor.phone_caller_id")}}, should I
+            terminate call?
+          event_id: terminate_phone_call
+          alexa_device: media_player.kitchen
+      - wait_for_trigger:
+          - platform: event
+            event_data:
+              event_id: terminate_phone_call
+            event_type: alexa_actionable_notification
+        timeout: '00:01:00'
+        continue_on_timeout: false
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: '{{ wait.trigger.event.data.event_response == "ResponseYes"}} '
+            sequence:
+              - service: button.press
+                target:
+                  entity_id: button.terminate_phone_call
+                data: {}
+              - service: tts.amazon_polly_say
+                data:
+                  entity_id: media_player.vlc
+                  message: Terminating phone call
+        default: []
+mode: single

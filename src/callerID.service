@@ -1,0 +1,13 @@
+[Unit]
+Description=alexa phone control Service
+After=multi-user.target
+
+[Service]
+WorkingDirectory=/home/pi/phone_modem
+User=pi
+Type=idle
+ExecStart=/usr/bin/python3 /home/pi/phone_modem/caller_id.py &> /dev/null
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
